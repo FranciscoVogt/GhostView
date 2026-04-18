@@ -1,4 +1,4 @@
-# GhostView: [INSERT ARTICLE TITLE HERE]
+# GhostView: Enabling Deep Visibility in Programmable Data Planes with Minimal Server Overhead.
 
 **Abstract:** GhostView is a high-fidelity monitoring strategy based on the **Egress pipeline** of programmable switches (Intel Tofino). It allows for real-time tracking of network metrics such as throughput, queue depth, and Inter-Packet Gap (IPG) for specific flows and ports. The core idea is to continuously monitor all flows and ports in the background (data plane) and embed this telemetry information into monitoring packets (probes) only when requested by the controller.
 
