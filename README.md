@@ -88,7 +88,7 @@ Additionally, creating virtual interfaces (`veth`) in the Minimal Test requires 
 Open the terminal in your Linux environment (Server or Local Machine) and execute the following commands:
 ```bash
 # Clone the repository
-git clone [https://github.com/FranciscoVogt/GhostView.git](https://github.com/FranciscoVogt/GhostView.git)
+git clone https://github.com/FranciscoVogt/GhostView.git
 cd GhostView
 
 # Install system packages and Python dependencies
