@@ -10,18 +10,24 @@ This repository is organized as follows to facilitate the evaluation process:
 1. **Considered Badges:** Evaluation claims and targeted badges.
 2. **Basic Information:** Environment and hardware requirements.
 3. **Dependencies:** Required libraries and packages.
-4. **Security Concerns:** Warnings about execution permissions.
-5. **Installation:** Initial setup steps.
-6. **Minimal Test:** Execution in a simulated environment (Local/No Tofino hardware required).
-7. **Experiments:** Execution in the real environment (Intel Tofino Switch).
-8. **Dashboard Metrics:** Explanation of the displayed results.
-9. **License:** Usage license.
+4. **Main Components:** Description of the repository's core files and scripts.
+5. **Security Concerns:** Warnings about execution permissions.
+6. **Installation:** Initial setup steps.
+7. **Minimal Test:** Execution in a simulated environment (Local/No Tofino hardware required).
+8. **Experiments:** Execution in the real environment (Intel Tofino Switch).
+9. **Dashboard Metrics:** Explanation of the displayed results.
+10. **Team:** List of authors and contributors.
+11. **License:** Usage license.
 
 ---
 
 ## Considered Badges
 
-The badges considered for this artifact are: **Available** and **Functional**.
+The badges considered for this artifact are: 
+* **Artifacts Available** (SeloD)
+* **Artifacts Functional** (SeloF)
+* **Artifacts Sustainable** (SeloS)
+* **Reproducible Experiments** (SeloR)
 
 *Note to reviewers: Due to the dependence on specific hardware (Intel Tofino Switch) for full reproduction, we provide a data plane simulator. This ensures that reviewers can fully evaluate the logical functionality, metric calculations, and the control interface (dashboard) even without access to the physical switch.*
 
@@ -55,6 +61,20 @@ GhostView features two execution modes. The requirements vary depending on the c
 
 ---
 
+## Main Components
+
+The repository consists of several core files that orchestrate the monitoring system:
+
+* **`controlPlane.py`**: The P4 control plane code. It contains routing configurations based on IP addresses. In the real environment mode, this must be edited to reflect your desired routing setup.
+* **`createFlows.py`**: An auxiliary script to generate traffic flows (for the real environment mode) using `tcpreplay`. When a flow is created, this script calculates the CRC32 of the Destination IP (truncated to 12 bits) to act as the Flow ID. This ID must be used in the configuration file if you wish to monitor that flow. *Note: This logic can be easily customized to use the CRC32 of the 5-tuple or any other flow key.*
+* **`experiment.txt`**: The configuration file required for both the switch and simulated modes. It contains the list of flows and ports to be monitored, along with their probe periodicity. (Format: `flow=4078, port=133, period=0.01`, one per line).
+* **`ghostView.p4`**: The example P4 code containing the GhostView module implemented in the egress pipeline.
+* **`ghostView.py`**: The monitoring dashboard that runs on the server. It is responsible for sending monitoring probes, receiving the telemetry responses, and displaying the real-time results.
+* **`portConfigs`**: The switch port configuration file. In the real environment mode, this must be edited to configure the available/used physical ports in your setup.
+* **`run.sh`**: A shell script that compiles, executes, and configures the switch, leaving it ready for testing.
+
+---
+
 ## Security Concerns
 
 For the Python scripts to successfully inject and capture packets directly on the network interfaces (whether physical or virtual), **superuser (`sudo`) privileges are mandatory**. 
@@ -66,11 +86,10 @@ Additionally, creating virtual interfaces (`veth`) in the Minimal Test requires 
 ## Installation
 
 Open the terminal in your Linux environment (Server or Local Machine) and execute the following commands:
-
 ```bash
 # Clone the repository
-git clone [INSERT_YOUR_REPOSITORY_URL_HERE]
-cd [INSERT_DIRECTORY_NAME_HERE]
+git clone [https://github.com/FranciscoVogt/GhostView.git](https://github.com/FranciscoVogt/GhostView.git)
+cd GhostView
 
 # Install system packages and Python dependencies
 sudo apt-get update
@@ -160,6 +179,19 @@ Regardless of the mode (Simulated or Tofino), the dashboard displays the followi
 
 ---
 
+## Team
+
+* Francisco Germano Vogt
+* Leonardo Henrique Guimaraes
+* Zhiheng Yang
+* Fabricio Eduardo Rodriguez Cesen
+* Sergio Rossi Brito da Silva
+* Marcelo Caggiani Luielli
+* Chrysa Papagianni
+* Christian Esteve Rothenberg
+
+---
+
 ## LICENSE
 
-Apache 2.0
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
