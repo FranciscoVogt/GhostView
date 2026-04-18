@@ -1,82 +1,165 @@
-# GhostView
+# GhostView: [INSERT ARTICLE TITLE HERE]
 
-**GhostView** is a high-fidelity monitoring strategy based on the **Egress pipeline** of programmable switches (Intel Tofino). It allows for real-time tracking of network metrics such as throughput, queue depth, and Inter-Packet Gap (IPG) for specific flows and ports.
+**Abstract:** GhostView is a high-fidelity monitoring strategy based on the **Egress pipeline** of programmable switches (Intel Tofino). It allows for real-time tracking of network metrics such as throughput, queue depth, and Inter-Packet Gap (IPG) for specific flows and ports. The core idea is to continuously monitor all flows and ports in the background (data plane) and embed this telemetry information into monitoring packets (probes) only when requested by the controller.
 
-The core idea is to keep monitoring all flows and ports in the background and write this telemetry information into monitoring packets (probes) when requested.
+---
 
-## Requirements
+## Structure of the readme.md
 
-* **SDE Version:** Tested on `9.13.x` (compatible with `9.12.x`).
-* **Environment:** A Tofino-based switch and a Monitoring Server (connected directly to the switch).
-* **Dependencies:** Python 3.x, Scapy, and `tcpreplay`.
+This repository is organized as follows to facilitate the evaluation process:
+1. **Considered Badges:** Evaluation claims and targeted badges.
+2. **Basic Information:** Environment and hardware requirements.
+3. **Dependencies:** Required libraries and packages.
+4. **Security Concerns:** Warnings about execution permissions.
+5. **Installation:** Initial setup steps.
+6. **Minimal Test:** Execution in a simulated environment (Local/No Tofino hardware required).
+7. **Experiments:** Execution in the real environment (Intel Tofino Switch).
+8. **Dashboard Metrics:** Explanation of the displayed results.
+9. **License:** Usage license.
 
-## Pre-usage Setup
+---
 
-1. **Prepare Terminals:** Open one terminal for the Tofino switch and two terminals for the monitoring server.
-2. **Clone Repository:** Clone this project in both the Tofino environment and the monitoring server.
-3. **Environment:** Set the SDE bash environment variables on the Tofino switch.
+## Considered Badges
 
-## Architecture & Integration
+The badges considered for this artifact are: **Available** and **Functional**.
 
-GhostView is designed to be modular. You can integrate our egress monitoring block into your existing P4 code.
+*Note to reviewers: Due to the dependence on specific hardware (Intel Tofino Switch) for full reproduction, we provide a data plane simulator. This ensures that reviewers can fully evaluate the logical functionality, metric calculations, and the control interface (dashboard) even without access to the physical switch.*
 
-### P4 Data Plane Requirements
-To support GhostView, your P4 code must:
-* **Recognize Probes:** The parser must identify the custom monitoring header. Probes use a specific **EtherType (`0x1234`)**. 
-* **Maintain IP sequence:** Even with the custom monitoring header, the packet maintains a standard IPv4 sequence internally.
-* **Forwarding Logic:** The Ingress pipeline must be capable of understanding and forwarding these probes to the monitoring server. By default, probes target the IP `172.168.0.2`.
-* **Egress Processing:** The monitoring data is filled into the probe headers at the Egress pipeline to ensure the most accurate metadata (queues, egress timestamps).
+---
 
-## Usage Guide
+## Basic Information
 
-### 1. Tofino Setup (Switch Side)
+GhostView features two execution modes. The requirements vary depending on the chosen mode:
 
-We provide a functional example featuring a simple IPv4 Exact Match forwarding table in the Ingress and GhostView in the Egress.
+**1. Simulated Mode (Minimal Test):**
+* **Hardware:** Any standard computer or virtual machine (1GB RAM and 1 CPU core are sufficient).
+* **OS:** Linux (Tested on Ubuntu 18.04 / 20.04 / 22.04).
 
-1. **Configure Rules:** Edit `controlPlane.py` with your forwarding rules (if necessary).
-2. **Configure Ports:** Edit `portConfigs` to match your physical setup.
-3. **Run the Switch:**
-   ```bash
-   ./run.sh
-   ```
-   *This script compiles the P4 code, sets up ports, and populates the tables.*
+**2. Tofino Mode (Full Experiment):**
+* **Hardware:** A programmable switch based on the Intel Tofino ASIC and a Monitoring Server connected directly to the switch.
+* **OS (Switch):** Configured Intel SDE environment.
+* **OS (Server):** Standard Linux.
 
-### 2. Traffic Generation (Server Side)
+---
 
-Use the `createFlows.py` script to generate the traffic you want to monitor. 
+## Dependencies
 
-* **Flow IDs:** In this implementation, Flow IDs are generated as the **CRC32 of the Destination IP, truncated to 12 bits**.
-* **Customization:** While we use the 12-bit truncated CRC32 for simplicity, the architecture can be adapted to any other flow key (like a 5-tuple hash).
+**Software and Libraries (For both modes):**
+* Python 3.6 or higher.
+* Scapy (`pip3 install scapy`).
+* `tcpreplay` (Only for traffic generation in Tofino Mode).
+* `curses` library (Usually native to Python on Linux).
+
+**Intel SDE (Only for Tofino Mode):**
+* SDE Version: Tested on `9.13.x` (compatible with `9.12.x`).
+
+---
+
+## Security Concerns
+
+For the Python scripts to successfully inject and capture packets directly on the network interfaces (whether physical or virtual), **superuser (`sudo`) privileges are mandatory**. 
+
+Additionally, creating virtual interfaces (`veth`) in the Minimal Test requires administrative permissions. The provided scripts do not make any permanent changes to the file system or network configurations beyond the creation of the temporary virtual interface pair.
+
+---
+
+## Installation
+
+Open the terminal in your Linux environment (Server or Local Machine) and execute the following commands:
 
 ```bash
-# Example: Generate 3 flows at 10Mbps, 20Mbps, and 15Mbps
-sudo python3 createFlows.py -nFlows 3 10 20 15 -intf enp6s0f1
+# Clone the repository
+git clone [INSERT_YOUR_REPOSITORY_URL_HERE]
+cd [INSERT_DIRECTORY_NAME_HERE]
+
+# Install system packages and Python dependencies
+sudo apt-get update
+sudo apt-get install tcpreplay python3-pip
+sudo pip3 install scapy
 ```
 
-### 3. Monitoring Dashboard (GhostView)
+---
 
-Run `ghostView.py` to start the live monitoring dashboard. This script sends probes and collects telemetry data.
+## Minimal Test
 
+To allow reviewers to observe the functionality of the controller and the dashboard without requiring Tofino hardware, we provide the `ghostSim.py` simulator. This script emulates the behavior of the switch's Data Plane, generating telemetry based on a configuration file.
+
+**Step 1: Create virtual interfaces (Virtual Cables)**
+To emulate packet transmission and reception without loopback duplication, we will create a `veth` pair:
 ```bash
-# Example execution
-sudo python3 ghostView.py --mode both --send-if enp6s0f1 --recv-if enp6s0f1 --file experiment.txt
+sudo ip link add veth0 type veth peer name veth1
+sudo ip link set veth0 up
+sudo ip link set veth1 up
 ```
 
-#### Configuration File (`experiment.txt`)
-The file defines which flows (by their 12-bit CRC32 ID) and ports to monitor, along with the probe periodicity:
+**Step 2: Create the flow configuration file**
+Create a file named `experiment.txt` in the project directory with the following content:
 ```text
 flow=4078, port=133, period=0.01
 flow=3668, port=135, period=0.01
 flow=3778, port=134, period=0.01
 ```
 
-## Dashboard Metrics
+**Step 3: Run the Switch Simulator (Terminal 1)**
+This script will inject the simulated telemetry into the `veth0` interface.
+```bash
+# Runs generating a fixed default rate of 500 Mbps for all flows
+sudo python3 ghostSim.py -i veth0 -f experiment.txt
 
-The dashboard displays real-time statistics for both Flows and Ports:
+# (Optional) Add the --random-rate flag for random throughputs (10 ~ 1000 Mbps)
+# sudo python3 ghostSim.py -i veth0 -f experiment.txt --random-rate
+```
 
-* **Inst (Mbps):** Instantaneous throughput between the last two probes.
-* **Reg (Mbps):** Throughput calculated via linear regression over the sample window for higher precision.
-* **EWMA (Mbps):** Exponential Weighted Moving Average to smooth out visual spikes.
+**Step 4: Run the GhostView Dashboard (Terminal 2)**
+The controller will listen on the `veth1` interface (the other end of the virtual cable).
+```bash
+sudo python3 ghostView.py --mode recv --recv-if veth1 -f experiment.txt
+```
+*Expected Result:* A terminal-based interface (`curses`) will open, displaying real-time metrics for the configured flows and ports. This validates the calculation logic (Instantaneous, Regression, and EWMA). Press `q` to exit.
+
+---
+
+## Experiments
+
+This section describes the execution in the real environment (Intel Tofino Switch), allowing reviewers to validate the article's claims regarding the Data Plane implementation.
+
+### Claim #1: High-Fidelity Monitoring in the Egress Pipeline
+
+The P4 code is designed to: (1) Recognize Probes (EtherType `0x1234`), (2) Forward them in the Ingress to the target IP `172.168.0.2`, and (3) Populate the telemetry data in the Egress pipeline.
+
+**Step 1: Tofino Setup (Switch Side)**
+1. Edit `controlPlane.py` and `portConfigs` to match your physical setup.
+2. Set the SDE bash environment variables.
+3. Compile and run the switch:
+```bash
+./run.sh
+```
+
+**Step 2: Traffic Generation (Monitoring Server - Terminal 1)**
+Use the `createFlows.py` script to generate the traffic you want to monitor. The Flow IDs are generated via the CRC32 of the Destination IP (truncated to 12 bits).
+```bash
+# Generates 3 flows at 10Mbps, 20Mbps, and 15Mbps on the enp6s0f1 interface
+sudo python3 createFlows.py -nFlows 3 10 20 15 -intf enp6s0f1
+```
+
+**Step 3: GhostView Dashboard Execution (Monitoring Server - Terminal 2)**
+With traffic flowing through the switch, start sending probes and receiving telemetry.
+```bash
+sudo python3 ghostView.py --mode both --send-if enp6s0f0 --recv-if enp6s0f1 --file experiment.txt
+```
+*Expected Result:* The dashboard will display the real-time throughput of the flows processed by the switch's ASIC. If the traffic generation (Step 2) is stopped, the dashboard will automatically detect the inactivity and reset the throughput to zero.
+
+---
+
+### Dashboard Metrics (Legend)
+Regardless of the mode (Simulated or Tofino), the dashboard displays the following statistics:
+* **Inst (Mbps):** Instantaneous throughput calculated between the last two telemetry samples.
+* **Reg (Mbps):** Throughput calculated via linear regression over the sample window (higher precision).
+* **EWMA (Mbps):** Exponential Weighted Moving Average (visual smoothing).
 * **Seen (s):** Time elapsed since the last probe was received.
 
-**Zero-traffic Detection:** The dashboard automatically detects if traffic has stopped. If probes arrive but the telemetry data (bytes/timestamps) remains static, or if probes stop arriving entirely, the throughput is automatically reset to `0.00` to reflect the current network state.
+---
+
+## LICENSE
+
+Apache 2.0
